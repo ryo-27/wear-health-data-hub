@@ -1,0 +1,4 @@
+<resources>
+    <!-- ランチャーやシステム設定画面に表示されるアプリ名。 -->
+    <string name="app_name">Wear Health Data Hub</string>
+</resources>

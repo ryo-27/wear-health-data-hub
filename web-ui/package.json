@@ -1,0 +1,15 @@
+{
+  "name": "wear-health-data-hub-web",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs",
+    "check": "node --check server.mjs && node --check public/app.js"
+  },
+  "dependencies": {
+    "chart.js": "^4.5.1",
+    "express": "^5.2.1",
+    "ws": "^8.21.3"
+  }
+}

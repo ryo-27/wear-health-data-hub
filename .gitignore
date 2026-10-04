@@ -1,0 +1,40 @@
+# IDE and machine-local configuration
+*.iml
+.idea/
+.DS_Store
+local.properties
+.env
+.env.*
+!.env.example
+
+# Gradle, Android, and Node generated files
+.gradle/
+**/build/
+.externalNativeBuild/
+.cxx/
+web-ui/node_modules/
+.vercel/
+*.apk
+*.aab
+*.apks
+*.log
+
+# Signing keys and local research data
+*.jks
+*.keystore
+*.p12
+*.pem
+*.key
+key.properties
+secrets.properties
+google-services.json
+/captures/
+/recordings/
+/exports/
+/data/
+/web-ui/data/
+
+# Local agent state
+/.agents/
+/.codex/
+**/.cursor/
