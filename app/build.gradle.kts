@@ -45,15 +45,6 @@ android {
                 "ws://10.0.2.2:8080/ingest",
             ).asBuildConfigString(),
         )
-        buildConfigField(
-            "String",
-            "HEALTH_DASHBOARD_TOKEN",
-            configuredValue(
-                "HEALTH_DASHBOARD_TOKEN",
-                "health.dashboard.token",
-                "development-token",
-            ).asBuildConfigString(),
-        )
     }
 
     buildTypes {

@@ -31,12 +31,14 @@ import androidx.wear.compose.ui.tooling.preview.WearPreviewDevices
 import com.example.wearhealthdatahub.data.HealthDataRecord
 import com.example.wearhealthdatahub.health.HealthServicesManager
 import com.example.wearhealthdatahub.health.HealthServicesState
+import com.example.wearhealthdatahub.network.HealthDataWebSocketClient
 import com.example.wearhealthdatahub.presentation.theme.WearHealthDataHubTheme
 import kotlinx.coroutines.launch
 
 /** 権限要求、Health Servicesの初期化、Wear Compose画面をつなぐエントリーポイント。 */
 class MainActivity : ComponentActivity() {
     private lateinit var healthServicesManager: HealthServicesManager
+    private lateinit var webSocketClient: HealthDataWebSocketClient
 
     // バックグラウンド健康権限は、対応するフォアグラウンド権限の許可後に別途要求する。
     private val backgroundPermissionLauncher = registerForActivityResult(
@@ -54,14 +56,18 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         healthServicesManager = HealthServicesManager(this)
+        webSocketClient = HealthDataWebSocketClient.getInstance(this)
+        webSocketClient.setForegroundActive(true)
 
         setContent {
             // StateFlowを監視し、受信した最新データでWear画面を自動更新する。
             val state by healthServicesManager.state.collectAsState()
             val records by healthServicesManager.records.collectAsState()
+            val pairingCode by webSocketClient.pairingCode.collectAsState()
             HealthDataApp(
                 state = state,
                 records = records,
+                pairingCode = pairingCode,
                 onStartExercise = { exerciseType ->
                     lifecycleScope.launch {
                         healthServicesManager.startExercise(exerciseType)
@@ -79,6 +85,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        webSocketClient.setForegroundActive(false)
         healthServicesManager.close()
         super.onDestroy()
     }
@@ -150,6 +157,7 @@ class MainActivity : ComponentActivity() {
 private fun HealthDataApp(
     state: HealthServicesState,
     records: List<HealthDataRecord>,
+    pairingCode: String?,
     onStartExercise: (androidx.health.services.client.data.ExerciseType) -> Unit,
     onEndExercise: () -> Unit,
 ) {
@@ -178,6 +186,11 @@ private fun HealthDataApp(
                     }
                     item {
                         StatusText(state)
+                    }
+                    if (pairingCode != null) {
+                        item {
+                            Text("Web紐付けコード\n${pairingCode.chunked(4).joinToString(" ")}")
+                        }
                     }
                     if (state.activeExerciseType == null && selectedExercise != null) {
                         item {
@@ -280,6 +293,7 @@ private fun DefaultPreview() {
     HealthDataApp(
         state = HealthServicesState(isLoading = false),
         records = emptyList(),
+        pairingCode = "12345678",
         onStartExercise = {},
         onEndExercise = {},
     )
