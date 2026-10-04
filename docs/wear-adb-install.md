@@ -1,45 +1,61 @@
-# Wear OS 実機での確認とADBインストール
+# Wear OS 実機への ADB インストール
 
-## 実行と確認
+開発者が PC から Wear OS の時計へ debug APK をインストールし、動作を確認する手順である。Android Studio と Android SDK Platform-Tools（`adb`）を使用する。コマンドはプロジェクトルートで実行する。
 
-1. Health Servicesを搭載したWear OS実機または対応エミュレーターで起動します。
-2. 必要な権限を許可します。
-3. Measure/Passiveの登録数と最新データが画面に表示されることを確認します。
-4. 種別ボタンを押して端末対応の運動を選び、「運動を開始」を押します。
-5. Android StudioのLogcatでタグ `HealthData` を検索します。
-6. 終了時は必ず「運動を終了」を押します。
+現在の debug APK は開発 PC 向けの接続先を含む。研究室への配布には使用しない。配布版の入手方法は [APK のダウンロード手順](apk-download.md)を参照すること。
 
-Passive配信は省電力のため即時ではなく、バックグラウンドでは複数件がまとめて届く場合があります。MeasureとExerciseはセンサーのサンプリング頻度を上げるため、必要な時間だけ使用してください。
+## 1. 接続先を設定して APK を作る
 
-## Wear OS実機へのADBインストール（開発・研究室内テスト）
+開発用の `local.properties` に、[ローカルダッシュボードの手順](local-dashboard.md)にある `health.websocket.url` と `health.dashboard.token` を設定する。これらはビルド時に APK へ埋め込まれるため、値を変えたら再ビルドが必要である。`local.properties` は Git 管理対象外である。
 
-この手順は、開発者がPCからWear OS端末へAPKを直接インストールする方法です。Google Playからの配布ではありません。Android StudioとAndroid SDK Platform-Tools（`adb`）が必要です。以下のコマンドはプロジェクトルートで実行します。
+Android Studio の **Build → Build Bundle(s) / APK(s) → Build APK(s)**、または次のコマンドで debug APK を作る。
 
-1. **送信先を設定する。** 開発用の `local.properties` に後述の `health.websocket.url` と `health.dashboard.token` を設定します。現在のAPKにはビルド時の送信先とトークンが埋め込まれるため、URLやトークンを変更したら必ず再ビルドしてください。`local.properties`はGit管理対象外です。
-2. **APKを作る。** Android Studioで **Build → Build Bundle(s) / APK(s) → Build APK(s)** を選ぶか、ターミナルで `./gradlew :app:assembleDebug`（Windowsは `gradlew.bat :app:assembleDebug`）を実行します。生成物は `app/build/outputs/apk/debug/app-debug.apk` です。現在のデバッグAPKは個人PCへの接続用なので、研究室向けWeb公開が完了するまで配布しないでください。
-3. **時計で開発者向けオプションを有効にする。** 時計の **設定 → システム → デバイス情報（またはバージョン）→ ビルド番号** を7回タップします。続いて **設定 → 開発者向けオプション** で **ADBデバッグ** と **ワイヤレスデバッグ** を有効にします。PCと時計は同じWi-Fiに接続します。研究室ネットワークの端末間通信が遮断されている場合は、接続可能なテスト用ネットワークを使ってください。
-4. **最初の一度だけペア設定する。** 時計の **ワイヤレスデバッグ → ペア設定コードを使用してデバイスをペア設定** を開き、表示された「ペア設定用」のIPアドレス・ポートを使います。
+```shell
+./gradlew :app:assembleDebug
+```
+
+Windows では `gradlew.bat :app:assembleDebug` を実行する。生成先は `app/build/outputs/apk/debug/app-debug.apk` である。
+
+## 2. 時計と PC を ADB で接続する
+
+1. 時計の **設定 → システム → デバイス情報（またはバージョン）→ ビルド番号** を 7 回タップし、開発者向けオプションを有効にする。
+2. **設定 → 開発者向けオプション** で **ADB デバッグ** と **ワイヤレスデバッグ** を有効にする。PC と時計を同じ Wi-Fi に接続する。研究室ネットワークで端末間通信が遮断される場合は、接続可能なテスト用ネットワークを使う。
+3. 時計の **ワイヤレスデバッグ → ペア設定コードを使用してデバイスをペア設定** を開く。表示された**ペア設定用** IP アドレスとポートで `adb pair` を実行し、時計のペア設定コードを入力する。
 
    ```shell
-   adb pair <時計のIP>:<ペア設定用ポート>
+   adb pair 192.0.2.10:37123
    ```
 
-   プロンプトで時計に表示されたペア設定コードを入力します。
-5. **時計へ接続する。** ペア設定画面を閉じ、時計の **ワイヤレスデバッグ** のメイン画面に表示されたIPアドレス・**接続用ポート**を使います。接続用ポートはペア設定用ポートと通常異なります。
+4. ペア設定画面を閉じ、ワイヤレスデバッグのメイン画面にある**接続用**ポートで接続する。通常、接続用ポートはペア設定用ポートと異なる。
 
    ```shell
-   adb connect <時計のIP>:<接続用ポート>
+   adb connect 192.0.2.10:43210
    adb devices
    ```
 
-6. **対象の時計へインストールする。** `adb devices` に表示されたシリアルを指定します。複数端末が接続されていても、指定した時計だけが対象になります。
+上記の IP アドレスとポートは例である。時計に表示された値へ置き換えること。ペア設定は初回だけでよいが、Wi-Fi の変更やワイヤレスデバッグの再起動後は `adb connect` をやり直す。
 
-   ```shell
-   adb -s <adb devicesに表示された時計のシリアル> install -r app/build/outputs/apk/debug/app-debug.apk
-   ```
+## 3. インストールして確認する
 
-   `Success` が出たら時計のアプリ一覧から起動し、必要な権限を許可してください。接続できない場合は、時計とPCのWi-Fi、ワイヤレスデバッグの接続用ポート、`adb devices` の表示を確認します。時計のWi-Fi変更やワイヤレスデバッグ再起動後は `adb connect` をやり直します。
+`adb devices` に表示された時計のシリアルを指定してインストールする。複数端末が接続されていても、指定した時計だけが対象となる。
 
-アプリIDを新しい名前に合わせて変更したため、旧版をインストール済みの時計では別アプリとして追加されます。旧版に保存された最新値や権限設定は新しいアプリへ引き継がれません。
+```shell
+adb -s 192.0.2.10:43210 install -r app/build/outputs/apk/debug/app-debug.apk
+```
 
-研究室へ継続的に配布する際は、公開済みの `wss://` 送信先を使い、自分が保管する署名鍵でリリースAPKを作ります。Android Studioの **Build → Generate Signed Bundle / APK → APK** で署名します。同じアプリを更新するには同じ署名鍵を使い、`versionCode` を増やします。署名鍵とパスワードをGitへ追加しないでください。Android公式の[Wear OSワイヤレスデバッグ手順](https://developer.android.com/training/wearables/get-started/debug-wifi)と[APK署名手順](https://developer.android.com/studio/publish/app-signing)も参照してください。
+このシリアルも例である。実際の表示に置き換えること。`Success` が表示されたら、次の順に確認する。
+
+1. 時計のアプリ一覧から **Wear Health Data Hub** を起動し、必要な権限を許可する。
+2. Measure / Passive の登録数と最新値が画面に表示されることを確認する。
+3. 対応する運動種別を選び、「運動を開始」を押す。Android Studio の Logcat で `HealthData` タグを確認する。
+4. 終了時は「運動を終了」を押す。
+
+Passive は省電力のため即時配信されず、バックグラウンドでは複数件がまとめて届く場合がある。Measure と Exercise は必要な時間だけ使用する。
+
+接続できない場合は、時計と PC の Wi-Fi、時計に表示された接続用ポート、`adb devices` の結果を確認する。
+
+## 配布版との違い
+
+アプリ ID の変更前にインストールした旧版は、現在のアプリとは別アプリとして残る。旧版の保存値と権限設定は引き継がれない。
+
+継続配布には公開済みの `wss://` 送信先と署名済みの release APK を用いる。同じアプリを更新するには同じ署名鍵を使い、`versionCode` を増やす。署名鍵とパスワードを Git に追加しないこと。公式の [Wear OS ワイヤレスデバッグ手順](https://developer.android.com/training/wearables/get-started/debug-wifi)と [APK 署名手順](https://developer.android.com/studio/publish/app-signing)も参照すること。

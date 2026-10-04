@@ -1,10 +1,10 @@
-# ローカルWebダッシュボード
+# ローカル Web ダッシュボード
 
-`web-ui`には、Wear端末からWebSocketでデータを受信し、最新値カードと時系列グラフを表示するNode.jsサーバーが含まれています。
+`web-ui` には、時計から WebSocket でデータを受信し、最新値カードと時系列グラフを表示する Node.js サーバーが含まれる。このページは**ローカル開発用**の接続手順である。
 
-### 1. PC側サーバーを起動
+## 1. PC 側サーバーを起動する
 
-Node.js 20以上が必要です。プロジェクトルートで次を実行します。
+Node.js 20 以上が必要である。プロジェクトルートで次を実行する。
 
 ```shell
 cd web-ui
@@ -12,35 +12,35 @@ npm install
 HEALTH_DASHBOARD_TOKEN="任意の十分に長い共有トークン" npm start
 ```
 
-起動後、PCのブラウザで `http://localhost:8080` を開き、同じ共有トークンを入力します。ポートを変更する場合は `PORT=9000 npm start` のように指定できます。
+起動後、PC のブラウザで `http://localhost:8080` を開き、同じ共有トークンを入力する。ポートを変更する場合は `PORT=9000 npm start` のように指定する。
 
-### 2. Wearアプリの送信先を設定
+## 2. 時計アプリの送信先を設定する
 
-プロジェクトルートの、Git管理対象外である `local.properties` に次を追加します。
+Git 管理対象外の `local.properties` に、接続先と共有トークンを追加する。
 
-実機の場合:
+### Wear OS 実機
 
 ```properties
 health.websocket.url=ws://192.168.1.100:8080/ingest
 health.dashboard.token=任意の十分に長い共有トークン
 ```
 
-`192.168.1.100`は開発PCのLAN IPへ置き換え、PCとWear端末を同じネットワークへ接続してください。
+`192.168.1.100` は例であり、開発 PC の LAN IP に置き換える。PC と時計は同じネットワークに接続する。
 
-Android Emulatorの場合:
+### Android Emulator
 
 ```properties
 health.websocket.url=ws://10.0.2.2:8080/ingest
 health.dashboard.token=任意の十分に長い共有トークン
 ```
 
-設定後にWearアプリを再ビルド・再インストールします。値は環境変数 `HEALTH_WEBSOCKET_URL` と `HEALTH_DASHBOARD_TOKEN` でも指定でき、環境変数が `local.properties` より優先されます。
+設定後、時計アプリを再ビルドしてインストールする。環境変数 `HEALTH_WEBSOCKET_URL` と `HEALTH_DASHBOARD_TOKEN` でも指定でき、環境変数が `local.properties` より優先される。
 
-未設定時はエミュレーター向けURLと `development-token` が使われます。実機や共有LANではデフォルトトークンを使用しないでください。
+未設定時はエミュレーター向け URL と `development-token` が使われる。実機や共有 LAN ではデフォルトトークンを使用しないこと。
 
-### WebSocket送信形式
+## WebSocket の送信形式
 
-Wearアプリは、同じタイミングで届いたレコードを次のエンベロープにまとめて `/ingest` へ送ります。
+時計アプリは、同じタイミングで届いたレコードを次のエンベロープにまとめて `/ingest` へ送る。
 
 ```json
 {
@@ -62,13 +62,14 @@ Wearアプリは、同じタイミングで届いたレコードを次のエン�
 }
 ```
 
-サーバーは `deviceId + source + dataType` ごとに最新値と直近300件をメモリ上へ保持します。サーバーを再起動するとWeb側の履歴は消去されます。
+サーバーは `deviceId + source + dataType` ごとに最新値と直近 300 件をメモリに保持する。サーバーの再起動で履歴は消える。
 
-MeasureとExerciseのデータはWearアプリが受信した直後にWebUIへ送られます。PassiveデータはHealth Servicesからバッチで届くため、センサー測定時刻からWeb表示まで遅れることがありますが、アプリがバッチを受信した後のWebSocket送信は即時です。
+- Measure と Exercise は、時計アプリが受信した直後に Web へ送る。
+- Passive は Health Services からバッチで届くため、測定時刻から Web 表示まで遅れる場合がある。時計アプリが受信した後の WebSocket 送信は即時に行う。
 
-### セキュリティ上の注意
+## 通信上の注意
 
-- WebSocket接続では共有トークンを必ず検証しますが、開発用の `ws://` は通信を暗号化しません。
-- debugビルドだけ平文通信を許可しています。インターネットへ公開せず、信頼できるLAN内だけで使用してください。
-- LAN外や本番環境で使う場合は、TLS終端を設定して `https://` / `wss://` を使用してください。
-- `local.properties`へ書いたトークンをソース管理へ追加しないでください。
+- WebSocket 接続では共有トークンを検証する。ただし、開発用の `ws://` は通信を暗号化しない。
+- 平文通信を許可するのは debug ビルドだけである。インターネットへ公開せず、信頼できる LAN 内で使用すること。
+- LAN 外で利用する場合は TLS を設定し、`https://` / `wss://` を使用すること。
+- `local.properties` のトークンを Git に追加しないこと。
