@@ -6,7 +6,7 @@
 
 ## 1. 接続先を設定して APK を作る
 
-開発用の `local.properties` に、[ローカルダッシュボードの手順](local-dashboard.md)にある `health.websocket.url` と `health.dashboard.token` を設定する。これらはビルド時に APK へ埋め込まれるため、値を変えたら再ビルドが必要である。`local.properties` は Git 管理対象外である。
+開発用の `local.properties` に、[ローカルダッシュボードの手順](local-dashboard.md)にある `health.websocket.url` を設定する。送信先 URL はビルド時に APK へ埋め込まれるため、値を変えたら再ビルドが必要である。`local.properties` は Git 管理対象外である。
 
 Android Studio の **Build → Build Bundle(s) / APK(s) → Build APK(s)**、または次のコマンドで debug APK を作る。
 
@@ -46,9 +46,10 @@ adb -s 192.0.2.10:43210 install -r app/build/outputs/apk/debug/app-debug.apk
 このシリアルも例である。実際の表示に置き換えること。`Success` が表示されたら、次の順に確認する。
 
 1. 時計のアプリ一覧から **Wear Health Data Hub** を起動し、必要な権限を許可する。
-2. Measure / Passive の登録数と最新値が画面に表示されることを確認する。
-3. 対応する運動種別を選び、「運動を開始」を押す。Android Studio の Logcat で `HealthData` タグを確認する。
-4. 終了時は「運動を終了」を押す。
+2. 時計に表示された 8 桁のコードを PC のダッシュボードへ入力し、紐付ける。これは ADB のワイヤレスデバッグ用コードとは別である。
+3. Measure / Passive の登録数と最新値が時計と Web 画面に表示されることを確認する。
+4. 対応する運動種別を選び、「運動を開始」を押す。Android Studio の Logcat で `HealthData` タグを確認する。
+5. 終了時は「運動を終了」を押す。
 
 Passive は省電力のため即時配信されず、バックグラウンドでは複数件がまとめて届く場合がある。Measure と Exercise は必要な時間だけ使用する。
 

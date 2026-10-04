@@ -1,6 +1,6 @@
 # 配布用 APK のダウンロードとインストール
 
-> **現状:** 配布用 APK は未公開である。[GitHub Releases](https://github.com/ryo-27/wear-health-data-hub/releases)にダウンロード可能な APK はない。公開ダッシュボードの送信先と端末ごとの紐付けを実装し、署名と動作確認を終えてから Release の **Assets** に掲載する。
+> **現状:** 配布用 APK は未公開である。[GitHub Releases](https://github.com/ryo-27/wear-health-data-hub/releases)にダウンロード可能な APK はない。端末ごとの紐付けはローカル環境で実装済みである。公開サーバーの用意、送信先の設定、署名と動作確認を終えてから Release の **Assets** に掲載する。
 
 現在の `app-debug.apk` は開発 PC 向けの設定でビルドされるため、研究室メンバーへの配布には使わない。
 
@@ -25,7 +25,7 @@ adb devices
 adb -s 192.0.2.10:12345 install -r "$HOME/Downloads/wear-health-data-hub-v1.0.apk"
 ```
 
-Windows PowerShell のファイル指定には `"$env:USERPROFILE\Downloads\wear-health-data-hub-v1.0.apk"` を使う。`Success` が出たら、時計で **Wear Health Data Hub** を起動し、必要な権限を許可する。Web ダッシュボードとの紐付け方法は公開版の実装後に追記する。
+Windows PowerShell のファイル指定には `"$env:USERPROFILE\Downloads\wear-health-data-hub-v1.0.apk"` を使う。`Success` が出たら、時計で **Wear Health Data Hub** を起動し、必要な権限を許可する。時計に表示された 8 桁のコードをダッシュボードへ入力して紐付ける。これは ADB のワイヤレスデバッグ用コードとは別である。
 
 開発用 APK と配布用 APK の署名鍵が異なる場合、上書きインストールは失敗する。この場合は旧アプリをアンインストールしてから配布用 APK をインストールする。ただし、アンインストールすると旧アプリの保存データと権限設定は消える。
 
@@ -35,7 +35,7 @@ Windows PowerShell のファイル指定には `"$env:USERPROFILE\Downloads\wear
 
 現在の実装には次の制約がある。
 
-- 送信先 URL と全端末共通のトークンを APK の `BuildConfig` に埋め込む。公開版では端末ごとの認証と画面での紐付けに変更する予定である。
+- 送信先 URL は APK の `BuildConfig` に埋め込む。端末ごとの認証情報はインストール後に生成する。公開先 URL を確定してから配布用 APK をビルドする。
 - 時計のネットワーク接続、権限の許可、Health Services からのデータ配信が送信の条件となる。
 - Measure はアプリ画面の終了時に登録を解除する。Passive はバックグラウンドでも配信間隔が一定ではない。
 - 通信切断中の未送信キューはプロセス内だけに保持する。プロセス終了後の再送は保証されない。
