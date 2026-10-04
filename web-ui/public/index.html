@@ -12,58 +12,55 @@
         <p class="eyebrow">WEAR OS / HEALTH SERVICES</p>
         <h1>Wear Health Data Hub</h1>
       </div>
-      <div class="connection">
-        <span id="connection-dot" class="dot offline"></span>
-        <div>
-          <strong id="connection-label">未接続</strong>
-          <small id="last-received">受信データなし</small>
+      <div class="header-actions">
+        <div class="connection" role="status">
+          <span id="connection-dot" class="dot offline"></span>
+          <div>
+            <strong id="connection-label">未接続</strong>
+            <small id="last-received">受信データなし</small>
+          </div>
         </div>
+        <button id="switch-device" class="secondary" type="button" hidden>別の時計を紐付ける</button>
       </div>
     </header>
 
     <main>
-      <section class="summary-grid" aria-label="接続概要">
-        <article class="summary-card">
-          <span>Wear接続</span>
-          <strong id="wear-count">0</strong>
-        </article>
-        <article class="summary-card">
-          <span>取得指標</span>
-          <strong id="metric-count">0</strong>
-        </article>
-        <article class="summary-card">
-          <span>デバイス</span>
-          <strong id="device-count">0</strong>
-        </article>
-        <article class="summary-card">
-          <span>受信レコード</span>
-          <strong id="record-count">0</strong>
-        </article>
-      </section>
-
-      <section class="panel chart-panel">
-        <div class="panel-heading">
-          <div>
-            <p class="eyebrow">REALTIME TREND</p>
-            <h2>時系列グラフ</h2>
+      <section id="pair-panel" class="panel pair-panel">
+        <p class="eyebrow">PAIR YOUR WATCH</p>
+        <h2>時計を紐付ける</h2>
+        <p>時計で Wear Health Data Hub を開き、表示された 8 桁のコードを入力する。コードは 10 分ごとに更新される。</p>
+        <form id="pair-form" class="pair-form">
+          <label for="pair-code">時計の紐付けコード</label>
+          <div class="pair-controls">
+            <input id="pair-code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{8}" maxlength="8" placeholder="12345678" required />
+            <button class="primary" type="submit">紐付ける</button>
           </div>
-          <label>
-            表示する指標
-            <select id="metric-select">
-              <option value="">数値データ待機中</option>
-            </select>
-          </label>
-        </div>
-        <div class="chart-wrap">
-          <canvas id="metric-chart"></canvas>
-        </div>
+          <p id="pair-error" class="error" role="alert" hidden></p>
+        </form>
       </section>
 
-      <section class="panel">
-        <div class="panel-heading">
-          <div>
-            <p class="eyebrow">LATEST VALUES</p>
-            <h2>最新データ</h2>
+      <div id="dashboard" hidden>
+        <section class="summary-grid" aria-label="接続概要">
+          <article class="summary-card"><span>時計の接続</span><strong id="wear-count">0</strong></article>
+          <article class="summary-card"><span>取得指標</span><strong id="metric-count">0</strong></article>
+          <article class="summary-card"><span>端末 ID</span><strong id="device-label" class="device-label">—</strong></article>
+          <article class="summary-card"><span>受信レコード</span><strong id="record-count">0</strong></article>
+        </section>
+
+        <section class="panel chart-panel">
+          <div class="panel-heading">
+            <div><p class="eyebrow">REALTIME TREND</p><h2>時系列グラフ</h2></div>
+            <label for="metric-select">表示する指標
+              <select id="metric-select"><option value="">数値データ待機中</option></select>
+            </label>
+          </div>
+          <div class="chart-wrap"><canvas id="metric-chart"></canvas></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-heading">
+            <div><p class="eyebrow">LATEST VALUES</p><h2>最新データ</h2></div>
+            <button id="export-json" class="secondary" type="button">受信データを JSON で保存</button>
           </div>
           <div id="source-filters" class="filters" aria-label="取得元フィルター">
             <button class="filter active" data-source="ALL">すべて</button>
@@ -71,124 +68,12 @@
             <button class="filter" data-source="PASSIVE">Passive</button>
             <button class="filter" data-source="EXERCISE">Exercise</button>
           </div>
-        </div>
-        <div id="metric-cards" class="metric-grid">
-          <p class="empty-state">Wear端末からデータが届くと、ここに最新値が表示されます。</p>
-        </div>
-      </section>
-    </main>
-
-    <dialog id="token-dialog">
-      <form id="token-form" method="dialog">
-        <p class="eyebrow">AUTHENTICATION</p>
-        <h2>ダッシュボードへ接続</h2>
-        <p>サーバー起動時に設定した共有トークンを入力してください。</p>
-        <label>
-          共有トークン
-          <input id="token-input" type="password" autocomplete="current-password" required />
-        </label>
-        <p id="token-error" class="error" hidden>接続できませんでした。トークンを確認してください。</p>
-        <button class="primary" type="submit">接続する</button>
-      </form>
-    </dialog>
-
-    <script src="/vendor/chart.umd.js"></script>
-    <script type="module" src="/app.js"></script>
-  </body>
-</html>
-<!doctype html>
-<html lang="ja">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Wear Health Data Hub</title>
-    <link rel="stylesheet" href="/styles.css" />
-  </head>
-  <body>
-    <header class="topbar">
-      <div>
-        <p class="eyebrow">WEAR OS / HEALTH SERVICES</p>
-        <h1>Wear Health Data Hub</h1>
+          <div id="metric-cards" class="metric-grid">
+            <p class="empty-state">時計からデータが届くと、ここに最新値が表示される。</p>
+          </div>
+        </section>
       </div>
-      <div class="connection">
-        <span id="connection-dot" class="dot offline"></span>
-        <div>
-          <strong id="connection-label">未接続</strong>
-          <small id="last-received">受信データなし</small>
-        </div>
-      </div>
-    </header>
-
-    <main>
-      <section class="summary-grid" aria-label="接続概要">
-        <article class="summary-card">
-          <span>Wear接続</span>
-          <strong id="wear-count">0</strong>
-        </article>
-        <article class="summary-card">
-          <span>取得指標</span>
-          <strong id="metric-count">0</strong>
-        </article>
-        <article class="summary-card">
-          <span>デバイス</span>
-          <strong id="device-count">0</strong>
-        </article>
-        <article class="summary-card">
-          <span>受信レコード</span>
-          <strong id="record-count">0</strong>
-        </article>
-      </section>
-
-      <section class="panel chart-panel">
-        <div class="panel-heading">
-          <div>
-            <p class="eyebrow">REALTIME TREND</p>
-            <h2>時系列グラフ</h2>
-          </div>
-          <label>
-            表示する指標
-            <select id="metric-select">
-              <option value="">数値データ待機中</option>
-            </select>
-          </label>
-        </div>
-        <div class="chart-wrap">
-          <canvas id="metric-chart"></canvas>
-        </div>
-      </section>
-
-      <section class="panel">
-        <div class="panel-heading">
-          <div>
-            <p class="eyebrow">LATEST VALUES</p>
-            <h2>最新データ</h2>
-          </div>
-          <div id="source-filters" class="filters" aria-label="取得元フィルター">
-            <button class="filter active" data-source="ALL">すべて</button>
-            <button class="filter" data-source="MEASURE">Measure</button>
-            <button class="filter" data-source="PASSIVE">Passive</button>
-            <button class="filter" data-source="EXERCISE">Exercise</button>
-          </div>
-        </div>
-        <div id="metric-cards" class="metric-grid">
-          <p class="empty-state">Wear端末からデータが届くと、ここに最新値が表示されます。</p>
-        </div>
-      </section>
     </main>
-
-    <dialog id="token-dialog">
-      <form id="token-form" method="dialog">
-        <p class="eyebrow">AUTHENTICATION</p>
-        <h2>ダッシュボードへ接続</h2>
-        <p>サーバー起動時に設定した共有トークンを入力してください。</p>
-        <label>
-          共有トークン
-          <input id="token-input" type="password" autocomplete="current-password" required />
-        </label>
-        <p id="token-error" class="error" hidden>接続できませんでした。トークンを確認してください。</p>
-        <button class="primary" type="submit">接続する</button>
-      </form>
-    </dialog>
 
     <script src="/vendor/chart.umd.js"></script>
     <script type="module" src="/app.js"></script>

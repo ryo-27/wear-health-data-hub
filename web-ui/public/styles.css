@@ -74,6 +74,12 @@ h2 {
   background: rgba(14, 19, 27, 0.82);
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .connection strong,
 .connection small {
   display: block;
@@ -318,6 +324,56 @@ dialog input {
   font-weight: 800;
 }
 
+.secondary {
+  padding: 11px 14px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: rgba(14, 19, 27, 0.82);
+  color: #f4f7fb;
+}
+
+.pair-panel {
+  max-width: 620px;
+  margin: 30px auto;
+}
+
+.pair-panel > p:not(.eyebrow) {
+  margin-top: 14px;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.pair-form {
+  display: grid;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.pair-controls {
+  display: flex;
+  gap: 10px;
+}
+
+.pair-controls input {
+  flex: 1;
+  min-width: 0;
+  font-size: 1.4rem;
+  letter-spacing: 0.2em;
+}
+
+.pair-controls .primary {
+  white-space: nowrap;
+}
+
+.device-label {
+  font-size: 1rem !important;
+  overflow-wrap: anywhere;
+}
+
+#source-filters {
+  margin-bottom: 16px;
+}
+
 .error {
   color: var(--danger);
   font-size: 0.8rem;
@@ -332,6 +388,15 @@ dialog input {
   .topbar,
   .panel-heading {
     align-items: stretch;
+    flex-direction: column;
+  }
+
+  .header-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .pair-controls {
     flex-direction: column;
   }
 
