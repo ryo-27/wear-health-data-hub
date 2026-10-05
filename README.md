@@ -16,15 +16,15 @@ flowchart LR
 - 紐付けた端末の受信履歴を、取得元とデータ型ごとに整理した JSON でダウンロードする。
 - 受信履歴はサーバーのメモリに保持する。サーバーを再起動すると履歴は消える。
 
-公開サーバーへの配置は未実装である。現在の debug APK は開発 PC 向けの接続先を使用するため、配布用 APK も未公開である。
+各利用者が自分の PC で `web-ui` を起動し、時計アプリでその PC の IPv4 アドレスを設定する。APK に特定の PC の送信先は埋め込まない。配布用 APK はまだ公開していない。
 
 ## ドキュメント
 
 - [Health Services の取得方法・データ形式・権限](docs/health-services.md)
 - [ローカルダッシュボードの起動と接続](docs/local-dashboard.md)
+- [各 PC で動かす構成と制限](docs/local-architecture.md)
 - [Wear OS 実機への ADB インストール](docs/wear-adb-install.md)
 - [配布用 APK のダウンロードとインストール](docs/apk-download.md) — 配布開始後に使用する手順
-- [公開ダッシュボードの構成と残作業](docs/public-dashboard-plan.md)
 
 ## 開発者と利用条件
 
