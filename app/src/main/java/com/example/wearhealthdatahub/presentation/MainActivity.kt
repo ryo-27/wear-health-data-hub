@@ -1,6 +1,7 @@
 package com.example.wearhealthdatahub.presentation
 
 import android.Manifest
+import android.app.RemoteInput
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -12,6 +13,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -28,6 +30,7 @@ import androidx.wear.compose.material3.Text
 import androidx.wear.compose.material3.lazy.rememberTransformationSpec
 import androidx.wear.compose.material3.lazy.transformedHeight
 import androidx.wear.compose.ui.tooling.preview.WearPreviewDevices
+import androidx.wear.input.RemoteInputIntentHelper
 import com.example.wearhealthdatahub.data.HealthDataRecord
 import com.example.wearhealthdatahub.health.HealthServicesManager
 import com.example.wearhealthdatahub.health.HealthServicesState
@@ -39,6 +42,18 @@ import kotlinx.coroutines.launch
 class MainActivity : ComponentActivity() {
     private lateinit var healthServicesManager: HealthServicesManager
     private lateinit var webSocketClient: HealthDataWebSocketClient
+    private var serverIpMessage by mutableStateOf<String?>(null)
+
+    private val serverIpLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) { result ->
+        val input = result.data?.let { RemoteInput.getResultsFromIntent(it) }
+            ?.getCharSequence(SERVER_IP_RESULT_KEY)?.toString()
+        if (input != null) {
+            serverIpMessage = if (webSocketClient.setServerIp(input)) null
+                else "IPv4 アドレスを入力する（例: 192.168.1.10）"
+        }
+    }
 
     // バックグラウンド健康権限は、対応するフォアグラウンド権限の許可後に別途要求する。
     private val backgroundPermissionLauncher = registerForActivityResult(
@@ -64,10 +79,14 @@ class MainActivity : ComponentActivity() {
             val state by healthServicesManager.state.collectAsState()
             val records by healthServicesManager.records.collectAsState()
             val pairingCode by webSocketClient.pairingCode.collectAsState()
+            val serverIp by webSocketClient.serverIp.collectAsState()
             HealthDataApp(
                 state = state,
                 records = records,
                 pairingCode = pairingCode,
+                serverIp = serverIp,
+                serverIpMessage = serverIpMessage,
+                onConfigureServer = ::launchServerIpInput,
                 onStartExercise = { exerciseType ->
                     lifecycleScope.launch {
                         healthServicesManager.startExercise(exerciseType)
@@ -88,6 +107,15 @@ class MainActivity : ComponentActivity() {
         webSocketClient.setForegroundActive(false)
         healthServicesManager.close()
         super.onDestroy()
+    }
+
+    private fun launchServerIpInput() {
+        val intent = RemoteInputIntentHelper.createActionRemoteInputIntent()
+        RemoteInputIntentHelper.putRemoteInputsExtra(
+            intent,
+            listOf(RemoteInput.Builder(SERVER_IP_RESULT_KEY).setLabel("PC の IPv4 アドレス").build()),
+        )
+        serverIpLauncher.launch(intent)
     }
 
     private fun requestForegroundPermissions() {
@@ -150,6 +178,10 @@ class MainActivity : ComponentActivity() {
                 Manifest.permission.BODY_SENSORS_BACKGROUND
             else -> null
         }
+
+    companion object {
+        private const val SERVER_IP_RESULT_KEY = "server_ip"
+    }
 }
 
 /** 対応運動種別の選択、運動開始・終了、最新データ一覧を表示するWear OS画面。 */
@@ -158,6 +190,9 @@ private fun HealthDataApp(
     state: HealthServicesState,
     records: List<HealthDataRecord>,
     pairingCode: String?,
+    serverIp: String?,
+    serverIpMessage: String?,
+    onConfigureServer: () -> Unit,
     onStartExercise: (androidx.health.services.client.data.ExerciseType) -> Unit,
     onEndExercise: () -> Unit,
 ) {
@@ -186,6 +221,23 @@ private fun HealthDataApp(
                     }
                     item {
                         StatusText(state)
+                    }
+                    item {
+                        Text(if (serverIp == null) "PC 接続先未設定" else "PC: $serverIp:8080")
+                    }
+                    item {
+                        Button(
+                            onClick = onConfigureServer,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .transformedHeight(this, transformationSpec),
+                            transformation = SurfaceTransformation(transformationSpec),
+                        ) {
+                            Text(if (serverIp == null) "PC の IP を設定" else "PC の IP を変更")
+                        }
+                    }
+                    if (serverIpMessage != null) {
+                        item { Text(serverIpMessage) }
                     }
                     if (pairingCode != null) {
                         item {
@@ -294,6 +346,9 @@ private fun DefaultPreview() {
         state = HealthServicesState(isLoading = false),
         records = emptyList(),
         pairingCode = "12345678",
+        serverIp = "192.168.1.10",
+        serverIpMessage = null,
+        onConfigureServer = {},
         onStartExercise = {},
         onEndExercise = {},
     )

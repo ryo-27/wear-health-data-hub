@@ -6,12 +6,10 @@ import android.os.Looper
 import android.os.SystemClock
 import android.util.Base64
 import android.util.Log
-import com.example.wearhealthdatahub.BuildConfig
 import com.example.wearhealthdatahub.data.HealthDataRecord
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
@@ -24,9 +22,9 @@ import java.security.SecureRandom
 import java.time.Instant
 import java.util.concurrent.TimeUnit
 
-/** 時計固有の認証情報で受信サーバーに接続し、健康データを送信する。 */
+/** 時計で指定した PC のローカル受信サーバーへ健康データを送る。 */
 class HealthDataWebSocketClient private constructor(context: Context) {
-    private val appContext = context.applicationContext
+    private val preferences = context.applicationContext.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
     private val handler = Handler(Looper.getMainLooper())
     private val client = OkHttpClient.Builder()
         .pingInterval(20, TimeUnit.SECONDS)
@@ -37,6 +35,8 @@ class HealthDataWebSocketClient private constructor(context: Context) {
     private val deviceId = MessageDigest.getInstance("SHA-256")
         .digest(Base64.decode(deviceSecret, Base64.URL_SAFE or Base64.NO_WRAP))
         .joinToString("") { "%02x".format(it.toInt() and 0xff) }
+    private val mutableServerIp = MutableStateFlow(preferences.getString(KEY_SERVER_IP, null)?.let(::normalizeIpv4))
+    val serverIp: StateFlow<String?> = mutableServerIp.asStateFlow()
     private val mutablePairingCode = MutableStateFlow<String?>(null)
     val pairingCode: StateFlow<String?> = mutablePairingCode.asStateFlow()
 
@@ -45,6 +45,7 @@ class HealthDataWebSocketClient private constructor(context: Context) {
     @Volatile private var authenticated = false
     @Volatile private var foregroundActive = false
     @Volatile private var nextConnectionAttemptAtMillis = 0L
+    private var connectionGeneration = 0
 
     @Synchronized
     fun setForegroundActive(active: Boolean) {
@@ -54,15 +55,38 @@ class HealthDataWebSocketClient private constructor(context: Context) {
         } else {
             mutablePairingCode.value = null
             if (pendingMessages.isEmpty()) {
+                connectionGeneration++
                 webSocket?.close(1000, "画面終了")
                 webSocket = null
                 authenticated = false
+                isConnecting = false
+                handler.removeCallbacks(reconnect)
             }
         }
     }
 
+    /** 利用者が時計で入力した PC の IPv4 アドレスを保存し、接続を切り替える。 */
+    @Synchronized
+    fun setServerIp(input: String): Boolean {
+        val ip = normalizeIpv4(input) ?: return false
+        if (mutableServerIp.value == ip) return true
+        preferences.edit().putString(KEY_SERVER_IP, ip).apply()
+        mutableServerIp.value = ip
+        pendingMessages.clear()
+        mutablePairingCode.value = null
+        connectionGeneration++
+        webSocket?.close(1000, "PC 接続先変更")
+        webSocket = null
+        authenticated = false
+        isConnecting = false
+        nextConnectionAttemptAtMillis = 0L
+        handler.removeCallbacks(reconnect)
+        if (foregroundActive) connectIfNeeded()
+        return true
+    }
+
     fun send(records: List<HealthDataRecord>) {
-        if (records.isEmpty() || BuildConfig.HEALTH_WEBSOCKET_URL.isBlank()) return
+        if (records.isEmpty() || mutableServerIp.value == null) return
         val message = JSONObject()
             .put("type", "health-data")
             .put("deviceId", deviceId)
@@ -83,7 +107,8 @@ class HealthDataWebSocketClient private constructor(context: Context) {
 
     @Synchronized
     private fun connectIfNeeded() {
-        if (BuildConfig.HEALTH_WEBSOCKET_URL.isBlank() || webSocket != null || isConnecting) return
+        val ip = mutableServerIp.value ?: return
+        if ((!foregroundActive && pendingMessages.isEmpty()) || webSocket != null || isConnecting) return
         val retryDelay = nextConnectionAttemptAtMillis - SystemClock.elapsedRealtime()
         if (retryDelay > 0) {
             handler.removeCallbacks(reconnect)
@@ -91,24 +116,26 @@ class HealthDataWebSocketClient private constructor(context: Context) {
             return
         }
         isConnecting = true
+        val generation = ++connectionGeneration
         runCatching {
             client.newWebSocket(
-                Request.Builder().url(BuildConfig.HEALTH_WEBSOCKET_URL.toOkHttpUrl()).build(),
-                listener,
+                Request.Builder().url("http://$ip:$SERVER_PORT/ingest").build(),
+                createListener(generation),
             )
         }.onFailure {
-            isConnecting = false
-            scheduleReconnect()
-            Log.e(TAG, "WebSocket URL が不正: ${BuildConfig.HEALTH_WEBSOCKET_URL}", it)
+            if (generation == connectionGeneration) {
+                isConnecting = false
+                scheduleReconnect()
+            }
+            Log.e(TAG, "PC 接続先が不正: $ip", it)
         }
     }
 
-    private val listener = object : WebSocketListener() {
+    private fun createListener(generation: Int) = object : WebSocketListener() {
         override fun onOpen(webSocket: WebSocket, response: Response) {
             synchronized(this@HealthDataWebSocketClient) {
-                if (!foregroundActive && pendingMessages.isEmpty()) {
-                    isConnecting = false
-                    webSocket.close(1000, "画面終了")
+                if (generation != connectionGeneration || (!foregroundActive && pendingMessages.isEmpty())) {
+                    webSocket.close(1000, "接続不要")
                     return
                 }
                 this@HealthDataWebSocketClient.webSocket = webSocket
@@ -127,54 +154,54 @@ class HealthDataWebSocketClient private constructor(context: Context) {
 
         override fun onMessage(webSocket: WebSocket, text: String) {
             val message = runCatching { JSONObject(text) }.getOrNull() ?: return
-            when (message.optString("type")) {
-                "device-ready" -> synchronized(this@HealthDataWebSocketClient) {
-                    if (this@HealthDataWebSocketClient.webSocket !== webSocket) return
-                    authenticated = true
-                    mutablePairingCode.value = message.optString("pairingCode").takeIf { it.length == 8 }
-                    while (pendingMessages.isNotEmpty()) {
-                        if (!webSocket.send(pendingMessages.first())) break
-                        pendingMessages.removeFirst()
+            synchronized(this@HealthDataWebSocketClient) {
+                if (generation != connectionGeneration || this@HealthDataWebSocketClient.webSocket !== webSocket) return
+                when (message.optString("type")) {
+                    "device-ready" -> {
+                        authenticated = true
+                        mutablePairingCode.value = message.optString("pairingCode").takeIf { it.length == 8 }
+                        while (pendingMessages.isNotEmpty()) {
+                            if (!webSocket.send(pendingMessages.first())) break
+                            pendingMessages.removeFirst()
+                        }
+                        if (!foregroundActive && pendingMessages.isEmpty()) webSocket.close(1000, "送信完了")
+                        Log.i(TAG, "PC の受信サーバーへ接続した")
                     }
-                    if (!foregroundActive && pendingMessages.isEmpty()) {
-                        webSocket.close(1000, "送信完了")
-                    }
-                    Log.i(TAG, "受信サーバーへ接続した")
+                    "paired" -> mutablePairingCode.value = null
+                    "error" -> Log.e(TAG, "サーバー拒否: ${message.optString("message")}")
                 }
-                "paired" -> mutablePairingCode.value = null
-                "error" -> Log.e(TAG, "サーバー拒否: ${message.optString("message")}")
             }
         }
 
         override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
-            handleDisconnect(webSocket, "切断: $code $reason")
+            handleDisconnect(generation, webSocket, "切断: $code $reason")
         }
 
         override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-            handleDisconnect(webSocket, "接続失敗: ${t.message}")
+            handleDisconnect(generation, webSocket, "接続失敗: ${t.message}")
         }
     }
 
-    private fun handleDisconnect(disconnectedSocket: WebSocket, message: String) {
+    private fun handleDisconnect(generation: Int, disconnectedSocket: WebSocket, message: String) {
         synchronized(this) {
+            if (generation != connectionGeneration) return
             if (webSocket === disconnectedSocket || webSocket == null) {
                 webSocket = null
                 isConnecting = false
                 authenticated = false
                 mutablePairingCode.value = null
+                Log.w(TAG, message)
+                scheduleReconnect()
             }
         }
-        Log.w(TAG, message)
-        scheduleReconnect()
     }
 
+    @Synchronized
     private fun scheduleReconnect() {
-        synchronized(this) {
-            if (!foregroundActive && pendingMessages.isEmpty()) return
-            nextConnectionAttemptAtMillis = SystemClock.elapsedRealtime() + RECONNECT_DELAY_MILLIS
-            handler.removeCallbacks(reconnect)
-            handler.postDelayed(reconnect, RECONNECT_DELAY_MILLIS)
-        }
+        if (!foregroundActive && pendingMessages.isEmpty()) return
+        nextConnectionAttemptAtMillis = SystemClock.elapsedRealtime() + RECONNECT_DELAY_MILLIS
+        handler.removeCallbacks(reconnect)
+        handler.postDelayed(reconnect, RECONNECT_DELAY_MILLIS)
     }
 
     private val reconnect = Runnable {
@@ -184,7 +211,6 @@ class HealthDataWebSocketClient private constructor(context: Context) {
     }
 
     private fun loadOrCreateDeviceSecret(): String {
-        val preferences = appContext.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
         preferences.getString(KEY_DEVICE_SECRET, null)?.let { existing ->
             if (runCatching { Base64.decode(existing, Base64.URL_SAFE or Base64.NO_WRAP).size == 32 }
                     .getOrDefault(false)) return existing
@@ -194,18 +220,28 @@ class HealthDataWebSocketClient private constructor(context: Context) {
             .also { preferences.edit().putString(KEY_DEVICE_SECRET, it).apply() }
     }
 
-    private fun String.toOkHttpUrl() = when {
-        startsWith("ws://", ignoreCase = true) -> "http://${substring(5)}"
-        startsWith("wss://", ignoreCase = true) -> "https://${substring(6)}"
-        else -> this
-    }.toHttpUrl()
-
     companion object {
         private const val TAG = "HealthWebSocket"
+        private const val SERVER_PORT = 8080
         private const val MAX_PENDING_MESSAGES = 200
         private const val RECONNECT_DELAY_MILLIS = 5_000L
         private const val PREFERENCES_NAME = "websocket_transport"
         private const val KEY_DEVICE_SECRET = "device_secret"
+        private const val KEY_SERVER_IP = "server_ip"
+
+        /** IP だけを受け付け、送信パスとポートはアプリが固定する。 */
+        private fun normalizeIpv4(input: String): String? {
+            val parts = input.trim().split('.')
+            if (parts.size != 4) return null
+            val octets = parts.map { part ->
+                val value = part.toIntOrNull() ?: return null
+                if (value !in 0..255 || part != value.toString()) return null
+                value
+            }
+            if (octets[0] == 0 || octets[0] == 127 || octets[0] >= 224 ||
+                (octets[0] == 169 && octets[1] == 254)) return null
+            return octets.joinToString(".")
+        }
 
         @Volatile private var instance: HealthDataWebSocketClient? = null
         fun getInstance(context: Context): HealthDataWebSocketClient =

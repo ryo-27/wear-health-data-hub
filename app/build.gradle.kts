@@ -1,24 +1,7 @@
-import java.util.Properties
-
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
 }
-
-val localProperties = Properties().apply {
-    rootProject.file("local.properties")
-        .takeIf { it.exists() }
-        ?.inputStream()
-        ?.use(::load)
-}
-
-fun configuredValue(environmentName: String, propertyName: String, defaultValue: String): String =
-    System.getenv(environmentName)
-        ?: localProperties.getProperty(propertyName)
-        ?: defaultValue
-
-fun String.asBuildConfigString(): String =
-    "\"${replace("\\", "\\\\").replace("\"", "\\\"")}\""
 
 android {
     namespace = "com.example.wearhealthdatahub"
@@ -36,15 +19,6 @@ android {
         versionCode = 1
         versionName = "1.0"
 
-        buildConfigField(
-            "String",
-            "HEALTH_WEBSOCKET_URL",
-            configuredValue(
-                "HEALTH_WEBSOCKET_URL",
-                "health.websocket.url",
-                "ws://10.0.2.2:8080/ingest",
-            ).asBuildConfigString(),
-        )
     }
 
     buildTypes {
@@ -63,7 +37,6 @@ android {
     useLibrary("wear-sdk")
     buildFeatures {
         compose = true
-        buildConfig = true
     }
 }
 
@@ -77,6 +50,7 @@ dependencies {
     implementation(libs.compose.ui.tooling)
     implementation(libs.core.splashscreen)
     implementation(libs.play.services.wearable)
+    implementation("androidx.wear:wear-input:1.2.0")
     implementation(libs.ui)
     implementation(libs.ui.graphics)
     implementation(libs.ui.tooling.preview)

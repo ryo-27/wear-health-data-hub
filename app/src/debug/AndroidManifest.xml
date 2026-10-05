@@ -1,5 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- ローカル開発PCのws://へ接続するため、debugビルドだけ平文通信を許可する。 -->
-    <application android:usesCleartextTraffic="true" />
-</manifest>

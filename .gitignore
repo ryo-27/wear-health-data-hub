@@ -13,6 +13,7 @@ local.properties
 .externalNativeBuild/
 .cxx/
 web-ui/node_modules/
+web-ui/dist/
 .vercel/
 *.apk
 *.aab
